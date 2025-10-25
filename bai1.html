@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="theme-color" content="{{ settings.main_color }}" />
+    <link rel="canonical" href="{{ canonical_url }}"/>
+    <meta name='revisit-after' content='2 days' />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
+    
+    {% if current_page != 1 or template contains 'search' or template contains 'cart' %}
+        <meta name="robots" content="follow, noindex">
+    {% else %}
+        <meta name="robots" content="noodp,index,follow" />
+    {% endif %}
+    
+    {% if current_page != 1 %}
+        <meta name="description" content="{{ page_description }} | Trang {{ current_page }}">
+    {% else %}
+        <meta name="description" content="{{ page_description }}">
+    {% endif %}
+    
+    <title>{% if page_title == 'All' %}Tất cả sản phẩm{% else %}{{ page_title }}{% endif %}{% if current_tags %} tagged "{{ current_tags | join: ', ' }}"{% endif %}{% if current_page != 1 %} - Trang {{ current_page }}{% endif %}</title>
+    
+    {% if template contains 'index' %}
+        {% if settings.home_page_keywords != '' and settings.home_page_keywords != null %}
+            <meta name="keywords" content="{{settings.home_page_keywords}}"/>
+        {% else %}
+            <meta name="keywords" content="{{store.name}}, {{store.domain}}"/>
+        {% endif %}
+    {% elsif template contains 'product' %}
+        <meta name="keywords" content="{{product.name}}, {% for collection in product.collections %}{{collection.name}}, {% endfor %}{% if product.tags.size > 0 %}{% for tag in product.tags %}{{tag}}, {% endfor %}{% endif %}{{store.name}}, {{store.domain}}"/>
+    {% elsif template contains 'collection' %}
+        <meta name="keywords" content="{{collection.name }}, {{store.name}}, {{store.domain}}"/>
+    {% elsif template contains 'blog' %}
+        <meta name="keywords" content="{{blog.name }}, {{store.name}}, {{store.domain}}"/>
+    {% elsif template contains 'article' %}
+        <meta name="keywords" content="{{article.title}}, {{blog.name}}, {% if article.tags.size > 0 %}{% for tag in article.tags %}{{tag}}, {% endfor %}{% endif %} {{store.name}}, {{store.domain}}"/>
+    {% else %}
+        <meta name="keywords" content="{{page_title}}, {{store.name}}, {{store.domain}}"/>
+    {% endif %}
+    
+    {% include 'fb-open-graph-tags' %} 
+    
+    {% if settings.favicon_enable %}
+        <link rel="icon" href="{{ 'favicon.png' | asset_url }}" type="image/x-icon" />
+    {% endif %}
+    
+    <link rel="preload" as="script" href="{{ 'jquery.js' | asset_url }}" />
+    {{ 'jquery.js' | asset_url | script_tag }}
+    
+    <link rel="preload" as="script" href="{{ 'swiper.js' | asset_url }}" />
+    {{ 'swiper.js' | asset_url | script_tag }}
+    
+    <link rel="preload" as="script" href="{{ 'lazy.js' | asset_url }}" />
+    {{ 'lazy.js' | asset_url | script_tag }}
+    
+    {% include 'header_style' %}
+    
+    {{ content_for_header }}
+    
+    {% if template contains 'customer' %}
+        {{ 'bizweb-api.js' | bizweb_asset_url | script_tag }}
+        {{ 'common.js' | bizweb_asset_url | script_tag }}
+        {{ 'customer.js' | bizweb_asset_url | script_tag }}
+    {% endif %}
+    
+    {% if template contains 'product' %}
+        <script>
+            var ProductReviewsAppUtil = ProductReviewsAppUtil || {};
+            {% if customer %}
+                ProductReviewsAppUtil.customer = { id: '{{customer.id}}', name: '{{customer.name}}', email: '{{customer.email}}', phone: '{{customer.phone}}' };
+            {% endif %}
+            ProductReviewsAppUtil.store = { name: '{{store.name}}' };
+        </script>
+    {% endif %}
+    
+    {% include 'schema' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            awe_lazyloadImage();
+
+            /* Header promotion ticker */
+            {% if settings.topbar_enable %}
+            const promoList = document.querySelector('.js-promo');
+            if (promoList) {
+                let index = 0;
+                let stop = false;
+                const liEls = promoList.querySelectorAll('li');
+                const num = liEls.length;
+
+                const shippingflipInX = () => {
+                    if (stop || num <= 1) return;
+                    
+                    liEls.forEach(el => {
+                        el.classList.remove('animated', 'flipInX', 'see-block');
+                        el.classList.add('see-none');
+                    });
+                    
+                    index = (index + 1) % num;
+                    
+                    liEls[index].classList.remove('see-none');
+                    liEls[index].classList.add('animated', 'flipInX', 'see-block');
+                };
+
+                setInterval(shippingflipInX, 5000);
+
+                promoList.addEventListener('mouseenter', () => { stop = true; });
+                promoList.addEventListener('mouseleave', () => { stop = false; });
+            }
+            {% endif %}
+
+            /* Smart search functionality */
+            {% if settings.search_smart_enable %}
+            const getItemSearch = async (name, smartjson) => {
+                try {
+                    const response = await fetch(`https://${window.location.hostname}/search?q=${name}&view=${smartjson}&type=product`);
+                    return await response.json();
+                } catch (err) {
+                    console.error('Search fetch error:', err);
+                    return null;
+                }
+            };
+
+            const searchRecentEl = document.querySelector('.search-suggest .search-recent');
+            const searchRecentList = localStorage.getItem('search_recent_list');
+            let recentList = searchRecentList ? JSON.parse(searchRecentList) : [];
+            let searchTimer;
+
+            const renderRecentSearches = () => {
+                if (!searchRecentEl) return;
+                const searchList = searchRecentEl.querySelector('.search-list');
+                searchList.innerHTML = ''; // Clear existing items
+
+                if (recentList.length > 0) {
+                    searchRecentEl.classList.remove('d-none');
+                    recentList.forEach(item => {
+                        const link = document.createElement('a');
+                        link.href = `/search?query=${encodeURIComponent(item)}&type=product`;
+                        link.textContent = item;
+                        link.title = `Tìm kiếm ${item}`;
+                        link.className = 'search-item';
+
+                        const closeSpan = document.createElement('span');
+                        closeSpan.textContent = 'Đóng';
+                        closeSpan.title = 'Đóng';
+                        closeSpan.className = 'close';
+
+                        closeSpan.addEventListener('click', e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            recentList = recentList.filter(i => i !== item);
+                            localStorage.setItem('search_recent_list', JSON.stringify(recentList));
+                            renderRecentSearches(); // Re-render the list
+                        });
+
+                        link.appendChild(closeSpan);
+                        searchList.appendChild(link);
+                    });
+                } else {
+                    searchRecentEl.classList.add('d-none');
+                }
+            };
+
+            renderRecentSearches();
+
+            const searchInputs = document.querySelectorAll('.header_tim_kiem input[type="text"], .search-mobile input[type="text"]');
+            
+            searchInputs.forEach(input => {
+                const resultsContainer = input.closest('.search-form-wrapper')?.querySelector('.list-search');
+                if (!resultsContainer) return;
+
+                input.addEventListener('keyup', e => {
+                    clearTimeout(searchTimer);
+                    const term = input.value.trim();
+
+                    if (term.length > 1) {
+                        searchRecentEl?.classList.add('d-none');
+                        
+                        // Debounce API calls to prevent firing on every keystroke
+                        searchTimer = setTimeout(async () => {
+                            const data = await getItemSearch(term, 'smartjson');
+                            if (data && Object.keys(data).length > 0) {
+                                let resultbox = '';
+                                Object.values(data).forEach(item => {
+                                    resultbox += `
+                                        <a class="product-smart" href="${item.url}" title="${item.name}">
+                                            <div class="image_thumb">
+                                                <img width="58" height="58" class="lazyload" src="${item.image}" alt="${item.name}">
+                                            </div>
+                                            <div class="product-info">
+                                                <h3 class="product-name"><span>${item.name}</span></h3>
+                                                <div class="price-box">
+                                                    <span class="price">${item.price}</span>
+                                                    ${item.compare_price !== 0 ? `<span class="compare-price">${item.compare_price}</span>` : ''}
+                                                </div>
+                                            </div>
+                                        </a>`;
+                                });
+                                resultbox += `<a href="/search?query=${encodeURIComponent(term)}&type=product" class="see-all-search" title="Xem tất cả">Xem tất cả kết quả »</a>`;
+                                resultsContainer.innerHTML = resultbox;
+                            } else {
+                                resultsContainer.innerHTML = '<div class="not-pro">Không có thấy kết quả tìm kiếm</div>';
+                            }
+                        }, 300); // Wait 300ms after user stops typing
+                    } else {
+                        resultsContainer.innerHTML = '';
+                        if (recentList.length > 0) {
+                            searchRecentEl?.classList.remove('d-none');
+                        }
+                    }
+                });
+            });
+            {% endif %}
+        });
+
+        function awe_lazyloadImage() {
+            const ll = new LazyLoad({
+                elements_selector: ".lazyload",
+                load_delay: 100,
+                threshold: 0
+            });
+        }
+        window.awe_lazyloadImage = awe_lazyloadImage;
+    </script>
+</head>
+<body {% if settings.wine_show_en %}class="overflow-body"{% endif %}>
+    {% if settings.wine_show_en %}
+        {% include 'popop_wine' %}
+    {% endif %}
+    
+    <div class="opacity_menu"></div>
+    
+    {% include 'header' %}
+    
+    <div class="bodywrap">
+        {% if settings.topbar_enable %}
+        <div class="topbar">
+            <div class="container header-promo">
+                {% if settings.topbar_promo_enable %}
+                <ul class="ul-default promo-list js-promo">
+                    {%- for i in (1..3) -%}
+                        {%- capture title -%}topbar_promo_title_{{i}}{%- endcapture -%}
+                        {%- if settings[title] != null and settings[title] != '' -%}
+                        <li class="promo-item {% if forloop.first %} see-block{% else %} see-none{% endif %}">
+                            {{ settings[title] }}
+                        </li>
+                        {%- endif -%}
+                    {%- endfor -%}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {{ content_for_layout }}
+        
+        <div id="js-global-alert" class="alert alert-success" role="alert">
+            <button type="button" class="close"><span aria-hidden="true">&times;</span></button>
+            <h5 class="alert-heading"></h5>
+            <p class="alert-content"></p>
+        </div>
+        
+        {% if template contains 'product' %}
+            {% include 'bpr-products-module' %}
+        {% endif %}
+        
+        {% include 'footer' %}
+    </div>
+
+    {% include 'footer_script' %}
+    
+    {% if settings.iwish_enable %}
+        {% include 'favorite_js' %}
+    {% endif %}
+    
+    {% if settings.contact_us_enable %}
+        {% include 'support' %}
+    {% endif %}
+    
+    <div id="popupCartModal" class="modal fade" role="dialog"></div>
+    
+    {%- include 'icon-svg' -%}
+    {% include 'popup-sapo' %}
+    {% include 'support1' %}
+</body>
+</html>
